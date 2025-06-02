@@ -1,0 +1,13 @@
+file_format: "1"
+id: sputnik44
+name: Sputnik44
+type: shield
+url: https://github.com/YkieWang/sputnik-zmk-config
+requires: [nice_nano_v2]
+features:
+  - keys
+  - pointer
+  - underglow
+siblings:
+  - sputnik44_left
+  - sputnik44_right

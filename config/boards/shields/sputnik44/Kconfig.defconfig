@@ -1,0 +1,17 @@
+if SHIELD_SPUTNIK44_LEFT
+
+# Name must be less than 16 characters long!
+config ZMK_KEYBOARD_NAME
+    default "Sputnik44"
+
+config ZMK_SPLIT_ROLE_CENTRAL
+    default y
+
+endif
+
+if SHIELD_SPUTNIK44_LEFT || SHIELD_SPUTNIK44_RIGHT
+
+config ZMK_SPLIT
+    default y
+
+endif
