@@ -1,0 +1,80 @@
+/*
+ * Copyright (c) 2024 The ZMK Contributors
+ * SPDX-License-Identifier: MIT
+ */
+
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
+// Ensure the ADC controller is enabled. For nice_nano_v2, this is typically &adc_0.
+// If your board uses a different ADC controller instance, adjust accordingly.
+&adc_0 {
+    status = "okay";
+};
+
+/ {
+    // Define the analog input device (joystick) that will be managed by the device_detector
+    // Replace pin placeholders with actual Zephyr pin definitions (e.g., P0_04, P0_05)
+    // and calibrate mv-mid, mv-min-max, mv-deadzone according to your hardware.
+    joystick_device: analog_input_joystick {
+        compatible = "zmk,analog-input";
+        status = "okay"; // Detector will manage actual use, but it needs to be okay to be found
+        sampling-hz = <100>; // Sampling rate in Hz
+
+        x_channel {
+            // Example: <&adc_0 ZEPHYR_ADC_PIN_X_AXIS> or <&adc_0 4> if P0.04 is channel 4
+            io-channels = <&adc_0 ZEPHYR_ADC_PIN_X_AXIS>; 
+            mv-mid = <1650>;       // Calibrated middle voltage for X-axis (in mV)
+            mv-min-max = <1600>;   // Max deviation from mid (e.g., (3300/2) - deadzone)
+            mv-deadzone = <50>;    // Deadzone in mV around mid
+            // invert;             // Uncomment if X-axis is inverted
+            evt-type = <INPUT_EV_REL>; // Relative event
+            input-code = <INPUT_REL_X>;  // X-axis relative code
+            // scale-multiplier = <1>;
+            // scale-divisor = <70>;
+            // report-on-change-only;
+        };
+
+        y_channel {
+            // Example: <&adc_0 ZEPHYR_ADC_PIN_Y_AXIS> or <&adc_0 5> if P0.05 is channel 5
+            io-channels = <&adc_0 ZEPHYR_ADC_PIN_Y_AXIS>;
+            mv-mid = <1650>;       // Calibrated middle voltage for Y-axis (in mV)
+            mv-min-max = <1600>;
+            mv-deadzone = <50>;
+            // invert;             // Uncomment if Y-axis is inverted
+            evt-type = <INPUT_EV_REL>; // Relative event
+            input-code = <INPUT_REL_Y>;  // Y-axis relative code
+            // scale-multiplier = <1>;
+            // scale-divisor = <70>;
+            // report-on-change-only;
+        };
+    };
+
+    // Define the device detector node
+    // Ensure 'adc' phandle points to your ADC controller (e.g., &adc_0)
+    // Replace 'DETECTOR_ADC_CHANNEL_NUMBER' with the actual ADC channel ID for the detection pin.
+    zmk_device_detector_node: device_detector {
+        compatible = "zmk,device-detector";
+        status = "okay";
+        adc = <&adc_0>;
+        adc-channel = <DETECTOR_ADC_CHANNEL_NUMBER>; // ADC Channel ID for detection
+        // adc-vref-mv = <3300>; // Optional: Override Kconfig if needed
+        // adc-resolution = <10>;  // Optional: Override Kconfig if needed
+
+        poll-interval-ms = <100>; // How often to check for device changes
+
+        // Voltage thresholds (in mV) - these should match your hardware setup.
+        // These can also be set via Kconfig, DTS takes precedence.
+        // voltage-none-max = <50>;
+        // voltage-joystick-min = <51>;
+        // voltage-joystick-max = <800>;
+        // voltage-trackball-min = <801>;
+        // voltage-trackball-max = <1600>;
+        // voltage-encoder-min = <1601>;
+        // voltage-encoder-max = <2400>;
+
+        // Reference the joystick device defined above
+        controlled-joystick = <&joystick_device>;
+        // controlled-trackball = <&trackball_module_label>; // Add if you have a trackball module
+        // controlled-encoder = <&encoder_module_label>;   // Add if you have an encoder module
+    };
+};
