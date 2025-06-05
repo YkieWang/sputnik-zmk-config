@@ -1,4 +1,3 @@
-
 #include "sputnik44.dtsi"
 
 &default_transform {
@@ -14,4 +13,38 @@
 		, <&pro_micro 8 GPIO_ACTIVE_HIGH>
 		, <&pro_micro 9 GPIO_ACTIVE_HIGH>
 		;
+};
+
+/ {
+    chosen {
+        zmk,device_detector = &device_detector_node;
+    };
+
+    device_detector_node: device_detector {
+        compatible = "zmk,device-detector";
+        status = "okay";
+        adc = <&adc>; /* Corrected: nice_nano_v2 uses &adc */
+        adc-channel = <0>; /* VERIFY: ADC channel for the detection pin (e.g., nice!nano A0 is P0.02/AIN0, usually channel 0) */
+        
+        poll-interval-ms = <500>;
+
+        /* Voltage thresholds in millivolts */
+        voltage-none-max-mv = <100>;       // Example: 0V - 0.1V
+        voltage-joystick-min-mv = <101>;   // Example: 0.101V - 0.8V
+        voltage-joystick-max-mv = <800>;
+        voltage-trackball-min-mv = <801>;  // Example: 0.801V - 1.6V
+        voltage-trackball-max-mv = <1600>;
+        voltage-encoder-min-mv = <1601>;   // Example: 1.601V - 2.4V
+        voltage-encoder-max-mv = <2400>;
+        /* unknown-voltage-threshold-mv = <2401>; // Optional, for voltages above all known ranges */
+
+        /* ADC electrical characteristics */
+        adc-vref-mv = <3300>;    // ADC reference voltage (e.g., 3.3V for nRF52840 on nice!nano)
+        adc-resolution = <10>;   // ADC resolution in bits (e.g., 10-bit for nRF52840 ADC)
+
+        /* Phandles to actual sub-device drivers (define these elsewhere if used) */
+        /* Example: controlled-joystick = <&analog_input_joystick>; */
+        /* Example: controlled-trackball = <&pmw3610_trackball>; */
+        /* Example: controlled-encoder = <&encoder_sensor>; */
+    };
 };

@@ -5,76 +5,143 @@
 
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 
-// Ensure the ADC controller is enabled. For nice_nano_v2, this is typically &adc_0.
-// If your board uses a different ADC controller instance, adjust accordingly.
-&adc_0 {
+// Ensure the ADC controller is enabled. For nice_nano_v2, this is &adc.
+&adc {
     status = "okay";
 };
 
 / {
-    // Define the analog input device (joystick) that will be managed by the device_detector
-    // Replace pin placeholders with actual Zephyr pin definitions (e.g., P0_04, P0_05)
-    // and calibrate mv-mid, mv-min-max, mv-deadzone according to your hardware.
-    joystick_device: analog_input_joystick {
-        compatible = "zmk,analog-input";
-        status = "okay"; // Detector will manage actual use, but it needs to be okay to be found
-        sampling-hz = <100>; // Sampling rate in Hz
+    chosen {
+        zmk,kscan = &kscan0;
+        zmk,matrix_transform = &default_transform;
+        // zmk,underglow = &led_strip; // Uncomment if using underglow
+        zmk,pointing_device = &analog_joystick; // Change if using a different primary pointing device
+    };
 
-        x_channel {
-            // Example: <&adc_0 ZEPHYR_ADC_PIN_X_AXIS> or <&adc_0 4> if P0.04 is channel 4
-            io-channels = <&adc_0 ZEPHYR_ADC_PIN_X_AXIS>; 
+    kscan0: kscan {
+        compatible = "zmk,kscan-gpio-matrix";
+        label = "KSCAN";
+        wait-for-setup;
+        debounce-period = <5>; // Debounce time in milliseconds
+
+        col-gpios
+            = <&pro_micro 0 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)> // COL0
+            , <&pro_micro 1 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)> // COL1
+            , <&pro_micro 2 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)> // COL2
+            , <&pro_micro 3 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)> // COL3
+            , <&pro_micro 4 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)> // COL4
+            , <&pro_micro 5 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)> // COL5
+            ;
+
+        row-gpios
+            = <&pro_micro 10 GPIO_ACTIVE_HIGH> // ROW0
+            , <&pro_micro 16 GPIO_ACTIVE_HIGH> // ROW1
+            , <&pro_micro 14 GPIO_ACTIVE_HIGH> // ROW2
+            , <&pro_micro 15 GPIO_ACTIVE_HIGH> // ROW3
+            ;
+    };
+
+    default_transform: keymap_transform_0 {
+        compatible = "zmk,matrix-transform";
+        columns = <6>;
+        rows = <4>;
+        map = <
+            RC(0,0) RC(0,1) RC(0,2) RC(0,3) RC(0,4) RC(0,5)
+            RC(1,0) RC(1,1) RC(1,2) RC(1,3) RC(1,4) RC(1,5)
+            RC(2,0) RC(2,1) RC(2,2) RC(2,3) RC(2,4) RC(2,5)
+            RC(3,0) RC(3,1) RC(3,2) RC(3,3) RC(3,4) RC(3,5)
+        >;
+    };
+
+    // Optional: Encoder
+    encoder_1: encoder_1 {
+        compatible = "alps,ec11";
+        label = "ENCODER_1";
+        a-gpios = <&pro_micro 20 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+        b-gpios = <&pro_micro 21 (GPIO_ACTIVE_HIGH | GPIO_PULL_UP)>;
+        steps = <80>; // Adjust steps per rotation as needed
+        status = "disabled"; // Initially disabled, enabled by device_detector
+    };
+
+    // Device Detector Node
+    zmk_device_detector_node: zmk_device_detector {
+        compatible = "zmk,device-detector";
+        status = "okay";
+        adc = <&adc>; // Corrected ADC reference for nice!nano
+        adc-channel = <0>; // Detection ADC channel - Pin A0 on nice!nano (P0.04)
+        // This adc-channel is for DEVICE TYPE DETECTION, not for joystick axes etc.
+        poll-interval-ms = <500>;
+        adc-vref-mv = <3300>;
+        adc-resolution = <10>;
+
+        // Voltage ranges for device detection (in mV)
+        joystick-voltage = <0 800>;       // Min_mV Max_mV for Joystick
+        trackball-voltage = <801 1600>;   // Min_mV Max_mV for Trackball
+        encoder-voltage = <1601 2400>;    // Min_mV Max_mV for Encoder
+
+        // Phandles to the actual device nodes to be controlled
+        controlled-joystick = <&analog_joystick>;
+        controlled-trackball = <&pmw3610_trackball>; // Points to the PMW3610 trackball node
+        controlled-encoder = <&encoder_1>; // EC11 encoder
+    };
+
+    // Analog Joystick Device Node (using zmk-analog-input driver)
+    analog_joystick: joystick_device { // Changed label to analog_joystick for clarity
+        compatible = "zmk,analog-input";
+        status = "disabled"; // Initially disabled, enabled by device_detector
+        // status = "okay"; // For testing without device_detector
+        label = "ANALOG_JOYSTICK";
+        input-type = "absolute"; // or "relative"
+        scale-multiplier = <1>;
+        scale-divisor = <70>; // Adjust for sensitivity
+        report-on-change-only; // Only report if value changes
+
+        x_channel: x_channel {
+            io-channels = <&adc 29>; // P0.29 for nice!nano X-axis (e.g. A1)
             mv-mid = <1650>;       // Calibrated middle voltage for X-axis (in mV)
             mv-min-max = <1600>;   // Max deviation from mid (e.g., (3300/2) - deadzone)
             mv-deadzone = <50>;    // Deadzone in mV around mid
             // invert;             // Uncomment if X-axis is inverted
             evt-type = <INPUT_EV_REL>; // Relative event
             input-code = <INPUT_REL_X>;  // X-axis relative code
-            // scale-multiplier = <1>;
-            // scale-divisor = <70>;
-            // report-on-change-only;
         };
 
-        y_channel {
-            // Example: <&adc_0 ZEPHYR_ADC_PIN_Y_AXIS> or <&adc_0 5> if P0.05 is channel 5
-            io-channels = <&adc_0 ZEPHYR_ADC_PIN_Y_AXIS>;
-            mv-mid = <1650>;       // Calibrated middle voltage for Y-axis (in mV)
+        y_channel: y_channel {
+            io-channels = <&adc 2>; // P0.02 for nice!nano Y-axis (e.g. A2)
+            mv-mid = <1650>;       // Calibrated middle voltage for Y-axis
             mv-min-max = <1600>;
             mv-deadzone = <50>;
             // invert;             // Uncomment if Y-axis is inverted
             evt-type = <INPUT_EV_REL>; // Relative event
             input-code = <INPUT_REL_Y>;  // Y-axis relative code
-            // scale-multiplier = <1>;
-            // scale-divisor = <70>;
-            // report-on-change-only;
         };
     };
 
-    // Define the device detector node
-    // Ensure 'adc' phandle points to your ADC controller (e.g., &adc_0)
-    // Replace 'DETECTOR_ADC_CHANNEL_NUMBER' with the actual ADC channel ID for the detection pin.
-    zmk_device_detector_node: device_detector {
-        compatible = "zmk,device-detector";
-        status = "okay";
-        adc = <&adc_0>;
-        adc-channel = <DETECTOR_ADC_CHANNEL_NUMBER>; // ADC Channel ID for detection
-        // adc-vref-mv = <3300>; // Optional: Override Kconfig if needed
-        // adc-resolution = <10>;  // Optional: Override Kconfig if needed
-
-        poll-interval-ms = <100>; // How often to check for device changes
-
-        // Voltage thresholds (in mV) - these should match your hardware setup.
-        // These can also be set via Kconfig, DTS takes precedence.
-        // voltage-none-max = <50>;
-        // voltage-joystick-min = <51>;
-        // voltage-joystick-max = <800>;
-        // voltage-trackball-min = <801>;
-        // voltage-trackball-max = <1600>;
-        // voltage-encoder-min = <1601>;
-        // voltage-encoder-max = <2400>;
-
-        // Reference the joystick device defined above
-        controlled-joystick = <&joystick_device>;
-        // controlled-trackball = <&trackball_module_label>; // Add if you have a trackball module
-        // controlled-encoder = <&encoder_module_label>;   // Add if you have an encoder module
+    // PMW3610 Trackball Device Node
+    pmw3610_trackball: pmw3610_trackball {
+        compatible = "pixart,pmw3610";
+        status = "disabled"; // Initially disabled, enabled by device_detector
+        // status = "okay"; // For testing without device_detector
+        label = "PMW3610_TRACKBALL";
+        spi = <&spi1>; // TODO: Replace &spi1 with your actual SPI controller
+        cs-gpios = <&pro_micro 17 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; // TODO: Replace with actual CS pin
+        irq-gpios = <&pro_micro 18 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; // TODO: Replace with actual IRQ pin
+        cpi = <800>; // Default CPI, can be overridden by Kconfig
+        evt-type = <INPUT_EV_REL>;    // 0x02 for EV_REL from linux/input-event-codes.h
+        x-input-code = <INPUT_REL_X>; // 0x00 for REL_X
+        y-input-code = <INPUT_REL_Y>; // 0x01 for REL_Y
+        // force-awake; // Uncomment if you want the sensor to never sleep
     };
+
+};
+
+// SPI1 for trackball
+&spi1 {
+    status = "okay";
+    // Default SPI config for nice!nano v2
+    compatible = "nordic,nrf-spim";
+    // These pin assignments can be customized if needed
+    pinctrl-0 = <&spi1_default>;
+    pinctrl-1 = <&spi1_sleep>;
+    pinctrl-names = "default", "sleep";
 };
